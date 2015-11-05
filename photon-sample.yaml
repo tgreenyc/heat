@@ -18,7 +18,7 @@ parameters:
   photon_net:
     type: string
     description: Photon network
-    default: vagrant-net
+    default: photon-net
 
   container_name:
     type: string
