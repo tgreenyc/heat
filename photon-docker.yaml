@@ -1,7 +1,8 @@
 heat_template_version: 2013-05-23
 
 description: |
-  Sample heat template to deploy container into Photon instance.
+  This heat template deploys a two-tier topology with a database tier and a container tier.
+
 parameters:
 
   external_network_id:
@@ -115,6 +116,7 @@ resources:
   etcd-instance:
     type: OS::Nova::Server
     properties:
+      name: etcd-instance
       image: { get_param: photon_image }
       flavor: m1.small
       networks:
@@ -128,6 +130,7 @@ resources:
   mysql_instance:
     type: OS::Nova::Server
     properties:
+      name: mysql-instance
       image: { get_param: mysql_image }
       flavor: { get_param: flavor }
       key_name: { get_param: key }
@@ -166,6 +169,7 @@ resources:
   container0-instance:
     type: OS::Nova::Server
     properties:
+      name: container0-instance
       image: { get_param: photon_image }
       flavor: m1.small
       networks:
