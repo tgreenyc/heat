@@ -214,24 +214,23 @@ resources:
       port_id: { get_resource: mysql_port0 }
 
 outputs:
-  container_pulic_ip:
+  container0_pulic_ip:
     description: Floating IP address of photon instance in public network
     value: { get_attr: [ container0_floater, floating_ip_address ] }
 
-  container_pulic_ip:
+  etcd_pulic_ip:
     description: Floating IP address of photon instance in public network
     value: { get_attr: [ etcd_floater, floating_ip_address ] }
 
-  container_pulic_ip:
+  mysql_pulic_ip:
     description: Floating IP address of photon instance in public network
     value: { get_attr: [ mysql_floater, floating_ip_address ] }
-
+  mysql_private_ip:
+    description: The IP address of the MySQL instance.
+    value: { get_attr: [mysql_instance, first_address] }
   name:
     description: Name of the MySQL instance.
     value: { get_attr: [mysql_instance, name] }
-  ip:
-    description: The IP address of the MySQL instance.
-    value: { get_attr: [mysql_instance, first_address] }
   port:
     description: The network port of the MySQL instance.
     value: { get_resource: port }
