@@ -39,6 +39,21 @@ parameters:
 
 
 resources:
+  #wait_condition:
+  #  type: OS::Heat::WaitCondition
+  #  properties:
+  #    handle: { get_resource: wait_handle }
+  #    count: 1
+  #    timeout: 600
+ 
+  #wait_handle:
+  #  type: OS::Heat::WaitConditionHandle
+  # Generate mysql root password 
+  mysql_root_password:
+    type: OS::Heat::RandomString
+    properties:
+      length: 32
+      sequence: lettersdigits
   # Create the container logical switch and configure DHCP.
   container_net:
     type: OS::Neutron::Net
@@ -140,7 +155,7 @@ resources:
             # restart service
             service mysql restart
  
-            wc_notify --data-binary '{"status": "SUCCESS"}'
+            #wc_notify --data-binary '{"status": "SUCCESS"}'
   # Create Container ports
   container0_port0:
     type: OS::Neutron::Port
@@ -182,14 +197,44 @@ resources:
             docker build -t jenkins/plugins -f /tmp/Dockerfile /tmp
             docker run -d -p 8080:8080 -p 50000:50000 jenkins/plugins
   # Attach floating IP
-  floater:
+  container0_floater:
     type: OS::Neutron::FloatingIP
     properties:
       floating_network_id: { get_param: external_network_id }
-      port_id: { get_resource: photon-svr_port0 }
+      port_id: { get_resource: container0_port0 }
+  etcd_floater:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: etcd_port0 }
+  mysql_floater:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: mysql_port0 }
 
 outputs:
-  photon_public_ip:
+  container_pulic_ip:
     description: Floating IP address of photon instance in public network
-    value: { get_attr: [ floater, floating_ip_address ] }
+    value: { get_attr: [ container0_floater, floating_ip_address ] }
 
+  container_pulic_ip:
+    description: Floating IP address of photon instance in public network
+    value: { get_attr: [ etcd_floater, floating_ip_address ] }
+
+  container_pulic_ip:
+    description: Floating IP address of photon instance in public network
+    value: { get_attr: [ mysql_floater, floating_ip_address ] }
+
+  name:
+    description: Name of the MySQL instance.
+    value: { get_attr: [mysql_instance, name] }
+  ip:
+    description: The IP address of the MySQL instance.
+    value: { get_attr: [mysql_instance, first_address] }
+  port:
+    description: The network port of the MySQL instance.
+    value: { get_resource: port }
+  database_password:
+    description: The MySQL root password.
+    value: { get_attr: [mysql_root_password, value] }
