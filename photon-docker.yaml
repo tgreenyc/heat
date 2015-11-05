@@ -1,0 +1,106 @@
+heat_template_version: 2013-05-23
+
+description: |
+  Sample heat template to deploy container into Photon instance.
+parameters:
+
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: 7092826e-d36b-46af-953b-fe587444a6c8
+
+  photon_image:
+    type: string
+    description: Name of image to use for servers
+    default: photonop
+
+  container_one:
+    type: string
+    description: Name of Docker Hub container to use
+    default: socialwifi/gerrit
+
+
+resources:
+  # Create the web logical switch and configure DHCP.
+  photon_net:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: photon-net
+  photon_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: photon-subnet
+      cidr: 172.16.10.0/24
+      dns_nameservers: [192.168.110.10]
+      enable_dhcp: true
+      gateway_ip: 172.16.10.1
+      network_id: { get_resource: photon_net }
+  # Create router, add internal interfaces for 3 tiers, and also an uplink.
+  heat_router_01:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: true
+      name: heat-router-01
+  heat_router_01_gw:
+    type: OS::Neutron::RouterGateway
+    properties:
+      network_id: {get_param: external_network_id}
+      router_id: { get_resource: heat_router_01 }
+  heat_router_int0:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: heat_router_01 }
+      subnet_id: { get_resource: photon_subnet }
+  photon-svr_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: photon_net }
+  # Provision instance
+  photon_test:
+    type: OS::Nova::Server
+    properties:
+      image: { get_param: photon_image }
+      flavor: m1.small
+      networks:
+        - port: { get_resource: photon-svr_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __container1__: { get_param: container_one }
+          template: |
+            #!/bin/bash
+            set -ux
+            # Install Jenkins and Gerrit Containers
+            docker pull __container1__
+            docker run -d -p 9000:8080 -p 29418:29418 __container1__
+            # Create the Jenkins plugins.txt
+            cat > /tmp/plugins.txt <<EOF
+            config-file-provider:2.7.5
+            ssh-slaves:1.9
+            openstack-cloud:1.8
+            EOF
+            #
+            # # Create Dockerfile
+            cat > /tmp/Dockerfile <<EOF
+            FROM jenkins
+            COPY plugins.txt /usr/share/jenkins/plugins.txt
+            RUN /usr/local/bin/plugins.sh /usr/share/jenkins/plugins.txt
+            EOF
+            docker build -t jenkins/plugins -f /tmp/Dockerfile /tmp
+            docker run -d -p 8080:8080 -p 50000:50000 jenkins/plugins
+  # Attach floating IP
+  floater:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: photon-svr_port0 }
+
+outputs:
+  photon_public_ip:
+    description: Floating IP address of photon instance in public network
+    value: { get_attr: [ floater, floating_ip_address ] }
+
