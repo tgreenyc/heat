@@ -69,7 +69,7 @@ resources:
       properties:
          admin_state_up: true
          network_id: { get_resource: lnet_1 }
-         fixed_ips:
+         allowed_address_pairs:
              - subnet: { get_resource: subnet_1 }
                ip_address: { get_param: bigip_client_subnet_ip }
              - subnet: { get_resource: subnet_1 }
