@@ -1,7 +1,7 @@
 heat_template_version: 2013-05-23
 
 description: |
-  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server, 
+  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server,
   and 1 DB Server on private networks and attaches them to security groups (HOT template in YAML).
 
 parameters:
@@ -58,8 +58,8 @@ resources:
       dns_nameservers: [192.168.110.10]
       enable_dhcp: true
       gateway_ip: 172.16.20.1
-      network_id: { get_resource: app_network_01 } 
-        
+      network_id: { get_resource: app_network_01 }
+
   # Create the db logical switch and configure DHCP.
   db_network_01:
     type: OS::Neutron::Net
@@ -74,7 +74,7 @@ resources:
       dns_nameservers: [192.168.110.10]
       enable_dhcp: true
       gateway_ip: 172.16.30.1
-      network_id: { get_resource: db_network_01 }  
+      network_id: { get_resource: db_network_01 }
 
   # Create router, add internal interfaces for 3 tiers, and also an uplink.
   heat_router_01:
@@ -139,10 +139,9 @@ resources:
       rules:
         - remote_ip_prefix: { get_attr: [ web_subnet_01, cidr ] }
           protocol: tcp
-          port_range_min: 8443 
-          port_range_max: 8443 
+          port_range_min: 8443
+          port_range_max: 8443
 
-        
   # Create ports on web switch.
   web-svr-01_port0:
     type: OS::Neutron::Port
@@ -156,7 +155,7 @@ resources:
     properties:
       floating_network_id: {get_param: external_network_id}
       port_id: { get_resource: web-svr-01_port0 }
-      
+
   web-svr-02_port0:
     type: OS::Neutron::Port
     properties:
@@ -169,7 +168,7 @@ resources:
     properties:
       floating_network_id: {get_param: external_network_id}
       port_id: { get_resource: web-svr-02_port0 }
-      
+
   # Create port(s) on app switch.
   app-svr-01_port0:
     type: OS::Neutron::Port
@@ -232,7 +231,7 @@ resources:
             #!/bin/bash
             sed -i 's/##HOT_APP_SERVER##/__app_ipaddr__/g' /etc/apache2/sites-enabled/000-default.conf
             service apache2 restart
-            
+
   web-svr-02:
     type: OS::Nova::Server
     depends_on: app-svr-01
@@ -250,7 +249,7 @@ resources:
             #!/bin/bash
             sed -i 's/##HOT_APP_SERVER##/__app_ipaddr__/g' /etc/apache2/sites-enabled/000-default.conf
             service apache2 restart
-            
+
   monitor:
     type: OS::Neutron::HealthMonitor
     properties:
@@ -258,7 +257,7 @@ resources:
       delay: 10
       max_retries: 5
       timeout: 10
-      
+
   pool:
     type: OS::Neutron::Pool
     depends_on: heat_router_int0
@@ -270,7 +269,7 @@ resources:
       lb_method: ROUND_ROBIN
       vip:
         protocol_port: 80
- 
+
   lb:
     type: OS::Neutron::LoadBalancer
     properties:
