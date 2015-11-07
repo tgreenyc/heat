@@ -63,20 +63,7 @@ resources:
       properties:
          router_id: { get_resource: router_1 }
          subnet_id: { get_resource: subnet_1 }
-   # Create extra port for the VIP
-   extra_port:
-      type: OS::Neutron::Port
-      properties:
-         network_id: { get_resource: lnet_1  }
-         fixed_ips:
-           - ip_address: { get_param: bigip_client_subnet_vip }
-   # Create floating IP for VIP
-   extra_floating_ip:
-      type: OS::Neutron::FloatingIP
-      properties:
-        floating_network_id: { get_param: ext_net_id }
-        port_id: { get_resource: extra_port }
-   # Create Instance port
+
    instance1_port1:
       type: OS::Neutron::Port
       properties:
@@ -85,10 +72,10 @@ resources:
          allowed_address_pairs:
            - ip_address: { get_param: bigip_client_subnet_vip }
          fixed_ips:
-           - subnet_id: { get_resource: subnet_1 }
+                 - subnet_id: { get_resource: subnet_1 }
          security_groups:
             - default
-   # Create Instance
+
    instance1:
       type: OS::Nova::Server
       properties:
@@ -104,6 +91,7 @@ resources:
       properties:
          floating_network_id: { get_param: ext_net_id }
          port_id: { get_resource: instance1_port1 }
+         fixed_ip_address: { get_param: bigip_client_subnet_vip }
 
 outputs:
    instance1_private_ip:
