@@ -30,6 +30,7 @@ parameters:
     default: 10.2.2.4
 
 resources:
+   # Create Logical Network
    lnet_1:
       type: OS::Neutron::Net
       properties:
@@ -47,7 +48,7 @@ resources:
               end: 10.2.2.101
          gateway_ip: 10.2.2.1
          network_id: { get_resource: lnet_1 }
-
+   # Create Router
    router_1:
       type: OS::Neutron::Router
       properties:
@@ -64,18 +65,18 @@ resources:
          router_id: { get_resource: router_1 }
          subnet_id: { get_resource: subnet_1 }
    # Create extra port for the VIP
-   extra_port:
+   vip_port:
       type: OS::Neutron::Port
       properties:
          network_id: { get_resource: lnet_1  }
          fixed_ips:
            - ip_address: { get_param: bigip_client_subnet_vip }
-   # Create floating IP for VIP
-   extra_floating_ip:
+   # Create floating IP for the VIP
+   vip_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
         floating_network_id: { get_param: ext_net_id }
-        port_id: { get_resource: extra_port }
+        port_id: { get_resource: vip_port }
    # Create Instance port
    instance1_port1:
       type: OS::Neutron::Port
@@ -98,7 +99,7 @@ resources:
          key_name: demo
          networks:
             - port: { get_resource: instance1_port1 }
-
+   # Instance Floating IP
    instance1_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
@@ -112,4 +113,7 @@ outputs:
    instance1_floating_ip:
       description: Floating IP address of instance1 on external network.
       value: { get_attr: [ instance1_floating_ip, floating_ip_address] }
+   vip_floating_ip:
+     description: Floating IP of the VIP
+     value: { get_attr: [ vip_floating_ip, floating_ip_address] }
 
