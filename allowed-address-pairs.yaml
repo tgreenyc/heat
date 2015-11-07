@@ -43,9 +43,6 @@ resources:
          name: subnet_1
          cidr: 10.2.2.0/24
          enable_dhcp: true
-         allocation_pools:
-            - start: 10.2.2.100
-              end: 10.2.2.101
          gateway_ip: 10.2.2.1
          network_id: { get_resource: lnet_1 }
    # Create Router
