@@ -71,7 +71,7 @@ resources:
          network_id: { get_resource: lnet_1  }
          fixed_ips:
            - ip_address: { get_param: bigip_client_subnet_vip }
-   # Create floating IP for the VIP
+   # Create floating IP for VIP
    vip_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
@@ -86,9 +86,9 @@ resources:
          allowed_address_pairs:
            - ip_address: { get_param: bigip_client_subnet_vip }
          fixed_ips:
-           - subnet_id: { get_resource: subnet_1 }
+           - ip_address: { get_param: bigip_client_subnet_ip }
          security_groups:
-            - default
+           - default
    # Create Instance
    instance1:
       type: OS::Nova::Server
@@ -99,7 +99,7 @@ resources:
          key_name: demo
          networks:
             - port: { get_resource: instance1_port1 }
-   # Instance Floating IP
+
    instance1_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
