@@ -19,7 +19,7 @@ parameters:
     type: string
     label: external network id
     description: ID of the external network to which the private network should be uplinked.
-    default: 7092826e-d36b-46af-953b-fe587444a6c8
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
   bigip_client_subnet_ip:
     type: string
     description: Private IP address BIG-IP is assigned on client private network
@@ -63,6 +63,12 @@ resources:
       properties:
          router_id: { get_resource: router_1 }
          subnet_id: { get_resource: subnet_1 }
+   extra_port:
+      type: OS::Neutron::Port
+      properties:
+         network_id: { get_resource: lnet_1 }
+         fixed_ips:
+           - ip_address: { get_param: bigip_client_subnet_vip }
 
    instance1_port1:
       type: OS::Neutron::Port
@@ -70,10 +76,9 @@ resources:
          admin_state_up: true
          network_id: { get_resource: lnet_1 }
          allowed_address_pairs:
+             - ip_address: { get_param: bigip_client_subnet_vip }
+         fixed_ips:
              - subnet: { get_resource: subnet_1 }
-               ip_address: { get_param: bigip_client_subnet_ip }
-             - subnet: { get_resource: subnet_1 }
-               ip_address: { get_param: bigip_client_subnet_vip }
          security_groups:
             - default
 
