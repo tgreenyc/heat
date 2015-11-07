@@ -2,7 +2,8 @@ heat_template_version: 2013-05-23
 
 description: >
    A simple Heat template that creates a VM, hooks it up to a private network
-   and associates a floating ip from an external network to the VM.
+   and associates a floating ip from an external network to the VM. It also includes
+   allowed_address_pairs integration.
 
 parameters:
   flavor_name:
