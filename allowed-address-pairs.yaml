@@ -20,7 +20,7 @@ parameters:
     type: string
     label: external network id
     description: ID of the external network to which the private network should be uplinked.
-    default: 7092826e-d36b-46af-953b-fe587444a6c8
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
   bigip_client_subnet_ip:
     type: string
     description: Private IP address BIG-IP is assigned on client private network
