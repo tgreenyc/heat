@@ -27,12 +27,6 @@ parameters:
     description: Type of instance (flavor) to be used on the compute instance.
     default: m1.small
 
-  key:
-    type: string
-    label: Key name
-    description: Name of key-pair to be installed on the compute instance.
-    default: test
-
   container_one:
     type: string
     description: Name of Docker Hub container to use
@@ -46,10 +40,10 @@ resources:
   #    handle: { get_resource: wait_handle }
   #    count: 1
   #    timeout: 600
- 
+
   #wait_handle:
   #  type: OS::Heat::WaitConditionHandle
-  # Generate mysql root password 
+  # Generate mysql root password
   mysql_root_password:
     type: OS::Heat::RandomString
     properties:
@@ -133,7 +127,6 @@ resources:
       name: mysql-instance
       image: { get_param: mysql_image }
       flavor: { get_param: flavor }
-      key_name: { get_param: key }
       networks:
         - port: { get_resource: mysql_port0 }
       user_data_format: RAW

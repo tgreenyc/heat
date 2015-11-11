@@ -97,6 +97,22 @@ resources:
          key_name: demo
          networks:
             - port: { get_resource: instance1_port1 }
+         user_data_format: RAW
+         user_data:
+           str_replace:
+             template: |
+               #!/bin/bash
+
+               cat > /etc/sysconfig/network-scripts/ifcfg-eth0:0 <<EOF
+               DEVICE=eth0:0
+               BOOTPROTO=none
+               IPADDR=10.2.2.4
+               NETMASK=255.255.255.0
+               GATEWAY=10.2.2.1
+               ONBOOT=yes
+               EOF
+
+               ifup eth0:0
 
    instance1_floating_ip:
       type: OS::Neutron::FloatingIP
