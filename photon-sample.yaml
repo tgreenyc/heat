@@ -105,7 +105,7 @@ resources:
   container0_floating_ip:
     type: OS::Neutron::FloatingIP
     properties:
-      floating_network_id: {get_param: external_network_id}
+      floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: container0_port0 }
 outputs:
   container0_public_ip:
