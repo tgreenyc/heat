@@ -248,7 +248,6 @@ resources:
       name: web-instance-02
       image: { get_param: web_image }
       flavor: m1.small
-      scheduler_hints: {group: {get_resource: policy_group}}
       networks:
         - port: { get_resource: web-svr-02_port0 }
       user_data:
