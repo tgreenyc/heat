@@ -38,7 +38,7 @@ resources:
     properties:
       name: container-subnet0
       cidr: 192.168.41.0/24
-      dns_nameservers: [192.168.64.60]
+      dns_nameservers: [8.8.8.8]
       enable_dhcp: true
       gateway_ip: 192.168.41.1
       network_id: { get_resource: container_net0 }
