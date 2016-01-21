@@ -179,7 +179,7 @@ resources:
     properties:
       name: db-instance-01
       image: { get_param: db_image }
-      flavor: m1.medium
+      flavor: m1.small
       networks:
         - port: { get_resource: db-svr-01_port0 }
 
@@ -189,7 +189,7 @@ resources:
     properties:
       name: app-instance-01
       image: { get_param: app_image }
-      flavor: m1.medium
+      flavor: m1.small
       networks:
         - port: { get_resource: app-svr-01_port0 }
       user_data:
@@ -206,7 +206,7 @@ resources:
     properties:
       name: web-instance-01
       image: { get_param: web_image }
-      flavor: m1.medium
+      flavor: m1.small
       networks:
         - port: { get_resource: web-svr-01_port0 }
       user_data:
