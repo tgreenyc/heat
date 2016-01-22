@@ -134,6 +134,7 @@ resources:
             __db_ipaddr__: { get_attr: [db1, first_address] }
             __database_user__: { get_param: database_user }
             __database_password__: { get_param: database_password }
+            __database_name__: { get_param: database_name }
             #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
           template: |
             #!/bin/bash
