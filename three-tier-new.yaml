@@ -282,7 +282,7 @@ resources:
       name: mypool
       protocol: HTTP
       monitors: [{get_resource: monitor}]
-      subnet_id: { get_resource: web_net }
+      subnet_id: { get_resource: web_subnet }
       lb_method: ROUND_ROBIN
       vip:
         protocol_port: 80
