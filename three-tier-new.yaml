@@ -1,7 +1,7 @@
 heat_template_version: 2013-05-23
 
 description: |
-  Sample heat template to deploy container into Photon instance.
+  Sample heat template to two tier application.
 parameters:
 
   external_network_id:
@@ -67,7 +67,7 @@ resources:
       enable_dhcp: true
       gateway_ip: 192.168.41.1
       network_id: { get_resource: db_net }
-  # Create the router, add internal container interface, and add router uplink
+  # Create the router, add internal db interface, and add router uplink
   app_router_01:
     type: OS::Neutron::Router
     properties:
@@ -146,5 +146,5 @@ resources:
       port_id: { get_resource: db1_port0 }
 outputs:
   db_public_ip:
-    description: Floating IP address of Container0 on the public network
+    description: Floating IP address of DB on the public network
     value: { get_attr: [ db_floating_ip, floating_ip_address ] }
