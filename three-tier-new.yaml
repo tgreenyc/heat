@@ -205,8 +205,8 @@ resources:
       port_id: { get_resource: web1_port0 }
 outputs:
   db1_public_ip:
-    description: Floating IP address of DB on the public network
+    description: Floating IP address of DB1 on the public network
     value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
   web1_public_ip:
-    description: Floating IP address of DB on the public network
+    description: Floating IP address of Web1 on the public network
     value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
