@@ -322,6 +322,13 @@ resources:
       floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: web2_port0 }
 outputs:
+  WebsiteURL:
+    description: URL for manager
+    value:
+      str_replace:
+        template: http://host/index.php
+        params:
+          host: { get_attr: [lb_floating, floating_ip_address] }
   db1_public_ip:
     description: Floating IP address of DB1 on the public network
     value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
