@@ -176,12 +176,20 @@ resources:
             mysql -u root -p "__database_name__" < threetier/db/vio.sql --password="__database_password__"
 
   # Attach floating IP
-  db_floating_ip:
+  db1_floating_ip:
     type: OS::Neutron::FloatingIP
     properties:
       floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: db1_port0 }
+  web1_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: web1_port0 }
 outputs:
-  db_public_ip:
+  db1_public_ip:
     description: Floating IP address of DB on the public network
-    value: { get_attr: [ db_floating_ip, floating_ip_address ] }
+    value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
+  web1_public_ip:
+    description: Floating IP address of DB on the public network
+    value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
