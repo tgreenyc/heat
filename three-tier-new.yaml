@@ -52,7 +52,7 @@ parameters:
     default: m1.small
 
 resources:
-  # Create the web logical switch and configure DHCP.
+  # Create the db logical switch and configure DHCP.
   db_net:
     type: OS::Neutron::Net
     properties:
@@ -67,6 +67,22 @@ resources:
       enable_dhcp: true
       gateway_ip: 192.168.41.1
       network_id: { get_resource: db_net }
+
+  # Create the web logical switch and configure DHCP.
+  web_net:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: web-net
+  web_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: web-subnet
+      cidr: 192.168.42.0/24
+      dns_nameservers: [8.8.8.8]
+      enable_dhcp: true
+      gateway_ip: 192.168.42.1
+      network_id: { get_resource: web_net }
   # Create the router, add internal db interface, and add router uplink
   app_router_01:
     type: OS::Neutron::Router
@@ -83,7 +99,11 @@ resources:
     properties:
       router_id: { get_resource: app_router_01 }
       subnet_id: { get_resource: db_subnet }
-
+  app_router_int1:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: app_router_01 }
+      subnet_id: { get_resource: web_subnet }
   # Create port(s) on db logical network.
   db1_port0:
     type: OS::Neutron::Port
@@ -91,7 +111,23 @@ resources:
       admin_state_up: true
       network_id: { get_resource: db_net }
 
-  # Provision instance
+  # Create port(s) on web logical network.
+  web1_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: web_net }
+
+  Provision instances
+  web1:
+    type: OS::Nova::Server
+    properties:
+      name: db1
+      image: { get_param: web_image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: web1_port0 }
+
   db1:
     type: OS::Nova::Server
     properties:
