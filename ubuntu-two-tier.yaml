@@ -142,7 +142,8 @@ resources:
             # Server prep
             apt-get update
             export DEBIAN_FRONTEND=noninteractive
-            apt-get install -y apache2 php5 libapache2-mod-php5 php5-mcrypt
+            apt-get install -y apache2 php5 libapache2-mod-php5 php5-mcrypt php5-mysql git
+            service apache2 restart
 
             # clone git repository for 3 Tier App
             git clone https://github.com/nvpnathan/threetier.git
@@ -172,15 +173,19 @@ resources:
           template: |
             #!/bin/bash
 
+            # install MySQL
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y mysql-server libapache2-mod-auth-mysql php5-mysql git
             # configure MySQL root password
-            service mysqld start
+            service mysql start
             mysqladmin -u root password "__mysql_root_password__"
 
             # listen on all network interfaces
             sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
 
             # restart service
-            service mysqld restart
+            service mysql restart
 
             # clone git repository for 3 Tier App
             git clone https://github.com/nvpnathan/threetier.git
@@ -210,7 +215,15 @@ resources:
     properties:
       floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: web1_port0 }
+
 outputs:
+  WebsiteURL:
+    description: URL for manager
+    value:
+      str_replace:
+        template: http://host/index.php
+        params:
+          host: { get_attr: [web1_floating_ip, floating_ip_address] }
   db1_public_ip:
     description: Floating IP address of DB1 on the public network
     value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
