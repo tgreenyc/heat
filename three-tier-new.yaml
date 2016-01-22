@@ -144,6 +144,7 @@ resources:
             sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
             sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
             sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
 
   db1:
     type: OS::Nova::Server
