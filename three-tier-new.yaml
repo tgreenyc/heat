@@ -127,21 +127,21 @@ resources:
       flavor: { get_param: flavor }
       networks:
         - port: { get_resource: web1_port0 }
-        user_data_format: RAW
-        user_data:
-          str_replace:
-            params:
-              __db_ipaddr__: { get_attr: [db1, first_address] }
-              #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
-            template: |
-              #!/bin/bash
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __db_ipaddr__: { get_attr: [db1, first_address] }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
 
-              # clone git repository for 3 Tier App
-              git clone https://github.com/nvpnathan/threetier.git
-              cp threetier/web/index.php /var/www/html/index.php
-              sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
-              sed -i 's/##DATABASE_USER##/__database_user__' /var/www/html/index.php
-              sed -i 's/##DATABASE_PASSWORD##/__database_password__' /var/www/html/index.php
+            # clone git repository for 3 Tier App
+            git clone https://github.com/nvpnathan/threetier.git
+            cp threetier/web/index.php /var/www/html/index.php
+            sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_USER##/__database_user__' /var/www/html/index.php
+            sed -i 's/##DATABASE_PASSWORD##/__database_password__' /var/www/html/index.php
 
   db1:
     type: OS::Nova::Server
