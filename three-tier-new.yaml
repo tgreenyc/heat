@@ -84,7 +84,7 @@ resources:
       router_id: { get_resource: app_router_01 }
       subnet_id: { get_resource: db-subnet }
 
-  # Create port(s) on container logical network.
+  # Create port(s) on db logical network.
   db1_port0:
     type: OS::Neutron::Port
     properties:
@@ -139,12 +139,12 @@ resources:
             mysql -u root -p "__database_name__" < threetier/db/vio.sql --password="__database_password__"
 
   # Attach floating IP
-  container0_floating_ip:
+  db_floating_ip:
     type: OS::Neutron::FloatingIP
     properties:
       floating_network_id: { get_param: external_network_id }
-      port_id: { get_resource: container0_port0 }
+      port_id: { get_resource: db1_port0 }
 outputs:
-  container0_public_ip:
+  db_public_ip:
     description: Floating IP address of Container0 on the public network
-    value: { get_attr: [ container0_floating_ip, floating_ip_address ] }
+    value: { get_attr: [ db_floating_ip, floating_ip_address ] }
