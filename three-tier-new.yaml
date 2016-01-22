@@ -149,13 +149,14 @@ resources:
             #!/bin/bash
 
             # configure MySQL root password
+            service mysqld start
             mysqladmin -u root password "__mysql_root_password__"
 
             # listen on all network interfaces
             sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
 
             # restart service
-            service mysql restart
+            service mysqld restart
 
             # clone git repository for 3 Tier App
             git clone https://github.com/nvpnathan/threetier.git
