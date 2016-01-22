@@ -82,7 +82,7 @@ resources:
     type: OS::Neutron::RouterInterface
     properties:
       router_id: { get_resource: app_router_01 }
-      subnet_id: { get_resource: db-subnet }
+      subnet_id: { get_resource: db_subnet }
 
   # Create port(s) on db logical network.
   db1_port0:
