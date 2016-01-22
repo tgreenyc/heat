@@ -189,7 +189,7 @@ resources:
             sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
             sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
             sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
-             sed -i 's/##LB_FLOATING_IP##/__lb_floating_ip__/' /var/www/html/index.php
+            sed -i 's/##LB_FLOATING_IP##/__lb_floating_ip__/' /var/www/html/index.php
 
   web2:
     type: OS::Nova::Server
