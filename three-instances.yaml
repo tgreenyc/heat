@@ -145,13 +145,37 @@ resources:
       flavor: m1.small
       networks:
         - port: { get_resource: app-svr-01_port0 }
+      user_data_format: RAW
       user_data:
         str_replace:
           params:
-            __db_ipaddr__: { get_attr: [db-svr-01, first_address] }
+            __mysql_ip__: { get_resource: mysql_server }
+            __database_name__: { get_resource: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_attr: [database_password, value] }
+            #wc_notify: { get_attr: ['wh', 'curl_cli'] }
           template: |
-            #!/bin/bash
-            sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/cgi-bin/nsx-webapp.cgi
+            #!/bin/bash -ex
+            # install dependencies
+            apt-get update
+            apt-get -y install apache2 php5 libapache2-mod-php5 php5-mysql php5-gd mysql-client
+            # download wordpress
+            wget http://wordpress.org/latest.tar.gz
+            tar -xzf latest.tar.gz
+            # configure wordpress
+            cp wordpress/wp-config-sample.php wordpress/wp-config.php
+            sed -i 's/database_name_here/__database_name__/' wordpress/wp-config.php
+            sed -i 's/username_here/__database_user__/' wordpress/wp-config.php
+            sed -i 's/password_here/__database_password__/' wordpress/wp-config.php
+            sed -i 's/localhost/__mysql_ip__/' wordpress/wp-config.php
+            # install a copy of the configured wordpress into apache's www directory
+            rm /var/www/html/index.html
+            cp -R wordpress/* /var/www/html/
+            # give apache ownership of the application files
+            chown -R www-data:www-data /var/www/html/
+            chmod -R g+w /var/www/html/
+            # notify heat that we are done here
+            #wc_notify --data-binary '{"status": "SUCCESS"}'
 
   web-svr-01:
     type: OS::Nova::Server
