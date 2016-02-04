@@ -194,10 +194,11 @@ resources:
           template: |
             #!/bin/bash
             # Install nginx
-            rmp -UvH https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
-            yum install -y nginx
-            mv /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf.disabled
+            #rpm -UvH https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
+            apt-get update
+            apt-get install -y nginx
             # Create the reverse proxy config
+            mv /etc/nginx/sites-available/default /etc/nginx/sites-available/default.disabled
             cat > /etc/nginx/conf.d/wordpress-proxy.conf <<EOF
             server {
                listen 80;
@@ -207,9 +208,9 @@ resources:
                location / {
                   proxy_pass http://##APP_IP_ADDR##/;
                   proxy_redirect off;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
                   client_max_body_size 100M;
                   client_body_buffer_size 1m;
                   proxy_intercept_errors on;
@@ -222,11 +223,11 @@ resources:
                   proxy_read_timeout 90;
                   proxy_send_timeout 90;
                 }
-            }
+             }
             EOF
             # Configure and start nginx
             sed -i 's/##APP_IP_ADDR##/__app_ip__/' /etc/nginx/conf.d/wordpress-proxy.conf
-            service nginx start
+            service nginx restart
             chkconfig nginx on
 
 outputs:
