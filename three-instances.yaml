@@ -1,7 +1,7 @@
 heat_template_version: 2013-05-23
 
 description: |
-  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server, 
+  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server,
   and 1 DB Server on private networks and attaches them to security groups (HOT template in YAML).
 
 parameters:
@@ -14,19 +14,19 @@ parameters:
     type: string
     label: web-net
     description: UUID of the Web network
-    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+    default: 743fb732-7ae8-42b9-99ec-0375b52dfa67
 
   app_net:
     type: string
     label: app-net
     description: UUID of the App network
-    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+    default: b2f1bda9-8e1f-4350-a8da-a49d806b2d8d
 
   db_net:
     type: string
     label: db-net
     description: UUID of the DB network
-    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+    default: ff35c71f-d71f-4792-bee6-bcb171921693
 
   web_image:
     type: string
@@ -43,6 +43,25 @@ parameters:
     description: Name of image to use for servers
     default: ubuntu-14.04-server-amd64
 
+  mysql_root_password:
+    type: string
+    description: MySQL root password
+    hidden: true
+
+  database_password:
+    type: string
+    description: MySQL user password
+    hidden: true
+
+  database_name:
+    type: string
+    label: Database name
+    description: Name of the application database.
+
+  database_user:
+    type: string
+    label: Database username
+    description: Name of the database user
 
 resources:
   # Create ports on web switch.
@@ -80,6 +99,42 @@ resources:
       flavor: m1.small
       networks:
         - port: { get_resource: db-svr-01_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __mysql_root_password__: { get_param: mysql_root_password }
+            __database_name__: { get_param: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+            # install MySQL
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y mysql-server
+
+            # configure MySQL root password
+            mysqladmin -u root password "__mysql_root_password__"
+
+            # listen on all network interfaces
+            sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
+
+            # restart service
+            service mysql restart
+
+            # create wordpress database
+            mysql -u root --password="__mysql_root_password__" <<EOF
+            CREATE DATABASE __database_name__;
+            CREATE USER '__database_user__'@'localhost';
+            SET PASSWORD FOR '__database_user__'@'localhost'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'localhost' IDENTIFIED BY '__database_password__';
+            CREATE USER '__database_user__'@'%';
+            SET PASSWORD FOR '__database_user__'@'%'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'%' IDENTIFIED BY '__database_password__';
+            FLUSH PRIVILEGES;
+            EOF
 
   app-svr-01:
     type: OS::Nova::Server
