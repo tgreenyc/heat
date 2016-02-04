@@ -89,6 +89,7 @@ resources:
     properties:
       admin_state_up: true
       name: app-router-01
+      value_specs: {router_type: exclusive}
   app_router_01_gw:
     type: OS::Neutron::RouterGateway
     properties:
@@ -104,12 +105,44 @@ resources:
     properties:
       router_id: { get_resource: app_router_01 }
       subnet_id: { get_resource: web_subnet }
+
+  # Create Security Groups
+  db_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Allow sql traffic from web tier
+      name: db-security-group
+      rules:
+        - remote_ip_prefix: { get_attr: [ web_subnet, cidr ] }
+          protocol: tcp
+          port_range_min: 3306
+          port_range_max: 3306
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+  web_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Allow web traffic from anywhere
+      name: web-security-group
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
   # Create port(s) on db logical network.
   db1_port0:
     type: OS::Neutron::Port
     properties:
       admin_state_up: true
       network_id: { get_resource: db_net }
+      security_groups:
+        - { get_resource: db_security_group }
 
   # Create port(s) on web logical network.
   web1_port0:
@@ -117,12 +150,21 @@ resources:
     properties:
       admin_state_up: true
       network_id: { get_resource: web_net }
+      security_groups:
+        - { get_resource: web_security_group }
+  web2_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: web_net }
+      security_groups:
+        - { get_resource: web_security_group }
 
   #Provision instances
   web1:
     type: OS::Nova::Server
     properties:
-      name: web1
+      name: web-svr-01
       image: { get_param: web_image }
       flavor: { get_param: flavor }
       networks:
@@ -135,6 +177,7 @@ resources:
             __database_user__: { get_param: database_user }
             __database_password__: { get_param: database_password }
             __database_name__: { get_param: database_name }
+            __lb_floating_ip__: { get_attr: [lb_floating, floating_ip_address] }
             #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
           template: |
             #!/bin/bash
@@ -146,6 +189,37 @@ resources:
             sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
             sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
             sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
+            sed -i 's/##LB_FLOATING_IP##/__lb_floating_ip__/' /var/www/html/index.php
+
+  web2:
+    type: OS::Nova::Server
+    properties:
+      name: web-svr-02
+      image: { get_param: web_image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: web2_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __db_ipaddr__: { get_attr: [db1, first_address] }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            __database_name__: { get_param: database_name }
+            __lb_floating_ip__: { get_attr: [lb_floating, floating_ip_address] }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+
+            # clone git repository for 3 Tier App
+            git clone https://github.com/nvpnathan/threetier.git
+            cp threetier/web/index.php /var/www/html/index.php
+            sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
+            sed -i 's/##LB_FLOATING_IP##/__lb_floating_ip__/' /var/www/html/index.php
 
   db1:
     type: OS::Nova::Server
@@ -194,6 +268,43 @@ resources:
             # copy vio database
             mysql -u root -p "__database_name__" < threetier/db/vio.sql --password="__database_password__"
 
+  # Create LB'er Monitor and Pool
+  monitor:
+    type: OS::Neutron::HealthMonitor
+    properties:
+      type: HTTP
+      http_method: GET
+      expected_codes: 200
+      url_path: /index.php
+      delay: 10
+      max_retries: 3
+      timeout: 10
+
+  pool:
+    type: OS::Neutron::Pool
+    depends_on: app_router_int1
+    properties:
+      name: mypool
+      protocol: HTTP
+      monitors: [{get_resource: monitor}]
+      subnet_id: { get_resource: web_subnet }
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 80
+
+  lb:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      members: [ { get_resource: web1 }, { get_resource: web2 } ]
+      protocol_port: 80
+      pool_id: { get_resource: pool }
+
+  lb_floating:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_attr: [ pool, vip, port_id ] }
+
   # Attach floating IP
   db1_floating_ip:
     type: OS::Neutron::FloatingIP
@@ -205,10 +316,28 @@ resources:
     properties:
       floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: web1_port0 }
+  web2_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: web2_port0 }
 outputs:
+  WebsiteURL:
+    description: URL for manager
+    value:
+      str_replace:
+        template: http://host/index.php
+        params:
+          host: { get_attr: [lb_floating, floating_ip_address] }
   db1_public_ip:
     description: Floating IP address of DB1 on the public network
     value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
   web1_public_ip:
     description: Floating IP address of Web1 on the public network
     value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
+  web2_public_ip:
+    description: Floating IP address of Web1 on the public network
+    value: { get_attr: [ web2_floating_ip, floating_ip_address ] }
+  lb_vip_ip:
+    description: LB VIP
+    value: { get_attr: [ lb_floating, floating_ip_address ] }
