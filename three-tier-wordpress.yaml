@@ -157,8 +157,8 @@ resources:
       rules:
         - remote_ip_prefix: { get_attr: [ web_subnet_01, cidr ] }
           protocol: tcp
-          port_range_min: 8443
-          port_range_max: 8443
+          port_range_min: 80
+          port_range_max: 80
 
   # Create ports on web switch.
   web-svr-01_port0:
