@@ -1,0 +1,209 @@
+heat_template_version: 2013-05-23
+
+description: |
+  Sample heat template to two tier application.
+parameters:
+
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+
+  provider_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: e150193e-3948-4c8f-9aa9-b59ea60e7db2
+
+  provider_subnet_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: dd1dd2ec-2ce7-421e-ac23-97475b16d65e
+
+  db_image:
+    type: string
+    description: Name of image to use for servers
+    default: ubuntu-14.04-server-amd64
+
+  web_image:
+    type: string
+    description: Name of image to use for servers
+    default: ubuntu-14.04-server-amd64
+
+  key_pair:
+    type: string
+    description: SSH Key Pair
+    default: nness
+
+  mysql_root_password:
+    type: string
+    description: MySQL root password
+    hidden: true
+
+  database_password:
+    type: string
+    description: MySQL user password
+    hidden: true
+
+  database_name:
+    type: string
+    label: Database name
+    description: Name of the application database.
+
+  database_user:
+    type: string
+    label: Database username
+    description: Name of the database user.
+
+  flavor:
+    type: string
+    label: Flavor
+    description: Type of instance (flavor) to be used on the compute instance.
+    default: m1.small
+
+resources:
+
+  lb_01:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: true
+      name: app-router-01
+ lb_gw:
+    type: OS::Neutron::RouterGateway
+    properties:
+      network_id: {get_param: external_network_id}
+      router_id: { get_resource: lb_01 }
+  lb_int0:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: lb_01 }
+      subnet_id: { get_param: provider_subnet_id }
+
+  # Create port(s) on db logical network.
+  db1_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_param: provider_subnet_id }
+
+  # Create port(s) on web logical network.
+  web1_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: provider_subnet_id }
+
+  #Provision instances
+  web1:
+    type: OS::Nova::Server
+    properties:
+      name: web1
+      image: { get_param: web_image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: web1_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __db_ipaddr__: { get_attr: [db1, first_address] }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            __database_name__: { get_param: database_name }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+
+            # Server prep
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y apache2 php5 libapache2-mod-php5 php5-mcrypt php5-mysql git
+            service apache2 restart
+
+            # clone git repository for 3 Tier App
+            git clone https://github.com/nvpnathan/threetier.git
+            cp threetier/web/index.php /var/www/html/index.php
+            sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
+
+  db1:
+    type: OS::Nova::Server
+    properties:
+      name: db1
+      image: { get_param: db_image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: db1_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __mysql_root_password__: { get_param: mysql_root_password }
+            __database_name__: { get_param: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+
+            # install MySQL
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y mysql-server libapache2-mod-auth-mysql php5-mysql git
+            # configure MySQL root password
+            service mysql start
+            mysqladmin -u root password "__mysql_root_password__"
+
+            # listen on all network interfaces
+            sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
+
+            # restart service
+            service mysql restart
+
+            # clone git repository for 3 Tier App
+            git clone https://github.com/nvpnathan/threetier.git
+
+            # create wordpress database
+            mysql -u root --password="__mysql_root_password__" <<EOF
+            CREATE DATABASE __database_name__;
+            CREATE USER '__database_user__'@'localhost';
+            SET PASSWORD FOR '__database_user__'@'localhost'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'*' IDENTIFIED BY '__database_password__';
+            CREATE USER '__database_user__'@'%';
+            SET PASSWORD FOR '__database_user__'@'%'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'%' IDENTIFIED BY '__database_password__';
+            FLUSH PRIVILEGES;
+            EOF
+            # copy vio database
+            mysql -u root -p "__database_name__" < threetier/db/vio.sql --password="__database_password__"
+
+  # Attach floating IP
+  db1_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: db1_port0 }
+  web1_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: web1_port0 }
+
+outputs:
+  WebsiteURL:
+    description: URL for manager
+    value:
+      str_replace:
+        template: http://host/index.php
+        params:
+          host: { get_attr: [web1_floating_ip, floating_ip_address] }
+  db1_public_ip:
+    description: Floating IP address of DB1 on the public network
+    value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
+  web1_public_ip:
+    description: Floating IP address of Web1 on the public network
+    value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
