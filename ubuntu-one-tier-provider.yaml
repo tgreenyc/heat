@@ -69,7 +69,8 @@ resources:
     type: OS::Neutron::Router
     properties:
       admin_state_up: true
-      name: app-router-01
+      name: lb-01
+      value_specs: {router_type: exclusive}
  lb_gw:
     type: OS::Neutron::RouterGateway
     properties:
@@ -88,8 +89,14 @@ resources:
       admin_state_up: true
       network_id: { get_param: provider_subnet_id }
 
-  # Create port(s) on web logical network.
-  web1_port0:
+  # Create port(s) on the provider network.
+  web1_port1:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: provider_subnet_id }
+
+  web2_port2:
     type: OS::Neutron::Port
     properties:
       admin_state_up: true
@@ -103,7 +110,7 @@ resources:
       image: { get_param: web_image }
       flavor: { get_param: flavor }
       networks:
-        - port: { get_resource: web1_port0 }
+        - port: { get_resource: web1_port1 }
       user_data_format: RAW
       user_data:
         str_replace:
@@ -130,6 +137,39 @@ resources:
             sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
             sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
 
+  web2:
+    type: OS::Nova::Server
+    properties:
+      name: web1
+      image: { get_param: web_image }
+      flavor: { get_param: flavor }
+      networks:
+        - port: { get_resource: web2_port2 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __db_ipaddr__: { get_attr: [db1, first_address] }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            __database_name__: { get_param: database_name }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+
+            # Server prep
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y apache2 php5 libapache2-mod-php5 php5-mcrypt php5-mysql git
+            service apache2 restart
+
+            # clone git repository for 3 Tier App
+            git clone https://github.com/nvpnathan/threetier.git
+            cp threetier/web/index.php /var/www/html/index.php
+            sed -i 's/##HOT_DB_SERVER##/__db_ipaddr__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_USER##/__database_user__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_PASSWORD##/__database_password__/' /var/www/html/index.php
+            sed -i 's/##DATABASE_NAME##/__database_name__/' /var/www/html/index.php
   db1:
     type: OS::Nova::Server
     properties:
@@ -181,17 +221,39 @@ resources:
             # copy vio database
             mysql -u root -p "__database_name__" < threetier/db/vio.sql --password="__database_password__"
 
-  # Attach floating IP
-  db1_floating_ip:
+  # Configure the LB'er
+  monitor:
+    type: OS::Neutron::HealthMonitor
+    properties:
+      type: TCP
+      delay: 10
+      max_retries: 5
+      timeout: 10
+
+  pool:
+    type: OS::Neutron::Pool
+    depends_on: heat_router_int0
+    properties:
+      name: mypool
+      protocol: HTTP
+      monitors: [{get_resource: monitor}]
+      subnet_id: {get_param: provider_subnet_id}
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 80
+
+  lb:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      members: [ { get_resource: web1 }, { get_resource: web2 } ]
+      protocol_port: 80
+      pool_id: { get_resource: pool }
+
+  lb_floating:
     type: OS::Neutron::FloatingIP
     properties:
       floating_network_id: { get_param: external_network_id }
-      port_id: { get_resource: db1_port0 }
-  web1_floating_ip:
-    type: OS::Neutron::FloatingIP
-    properties:
-      floating_network_id: { get_param: external_network_id }
-      port_id: { get_resource: web1_port0 }
+      port_id: { get_attr: [ pool, vip, port_id ] }
 
 outputs:
   WebsiteURL:
@@ -200,10 +262,4 @@ outputs:
       str_replace:
         template: http://host/index.php
         params:
-          host: { get_attr: [web1_floating_ip, floating_ip_address] }
-  db1_public_ip:
-    description: Floating IP address of DB1 on the public network
-    value: { get_attr: [ db1_floating_ip, floating_ip_address ] }
-  web1_public_ip:
-    description: Floating IP address of Web1 on the public network
-    value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
+          host: { get_attr: [lb_floating, floating_ip_address] }
