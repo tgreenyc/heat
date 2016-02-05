@@ -12,13 +12,13 @@ parameters:
 
   provider_network_id:
     type: string
-    label: ext-net
+    label: provider-net
     description: UUID of a Neutron external network
     default: e150193e-3948-4c8f-9aa9-b59ea60e7db2
 
   provider_subnet_id:
     type: string
-    label: ext-net
+    label: provider-subnet
     description: UUID of a Neutron external network
     default: dd1dd2ec-2ce7-421e-ac23-97475b16d65e
 
@@ -71,7 +71,7 @@ resources:
       admin_state_up: true
       name: lb-01
       value_specs: {router_type: exclusive}
- lb_gw:
+  lb_01_gw:
     type: OS::Neutron::RouterGateway
     properties:
       network_id: {get_param: external_network_id}
@@ -80,27 +80,34 @@ resources:
     type: OS::Neutron::RouterInterface
     properties:
       router_id: { get_resource: lb_01 }
-      subnet_id: { get_param: provider_subnet_id }
+      port: { get_resource: lb_port0 }
+  lb_port0:
+    type: OS::Neutron::Port
+    properties:
+       admin_state_up: true
+       network_id: { get_param: provider_network_id }
+       fixed_ips:
+          - subnet: { get_param: provider_subnet_id }
 
   # Create port(s) on db logical network.
   db1_port0:
     type: OS::Neutron::Port
     properties:
       admin_state_up: true
-      network_id: { get_param: provider_subnet_id }
+      network_id: { get_param: provider_network_id }
 
   # Create port(s) on the provider network.
   web1_port1:
     type: OS::Neutron::Port
     properties:
       admin_state_up: true
-      network_id: { get_resource: provider_subnet_id }
+      network_id: { get_param: provider_network_id }
 
   web2_port2:
     type: OS::Neutron::Port
     properties:
       admin_state_up: true
-      network_id: { get_resource: provider_subnet_id }
+      network_id: { get_param: provider_network_id }
 
   #Provision instances
   web1:
@@ -140,7 +147,7 @@ resources:
   web2:
     type: OS::Nova::Server
     properties:
-      name: web1
+      name: web2
       image: { get_param: web_image }
       flavor: { get_param: flavor }
       networks:
@@ -232,7 +239,7 @@ resources:
 
   pool:
     type: OS::Neutron::Pool
-    depends_on: heat_router_int0
+    depends_on: lb_int0
     properties:
       name: mypool
       protocol: HTTP
