@@ -1,0 +1,50 @@
+heat_template_version: 2013-05-23
+
+description: |
+  Deploys a Provider LBer for VLAN backed Provider networks.
+parameters:
+
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+
+  provider_network_id:
+    type: string
+    label: provider-net
+    description: UUID of a Neutron external network
+    default: e150193e-3948-4c8f-9aa9-b59ea60e7db2
+
+  provider_subnet_id:
+    type: string
+    label: provider-subnet
+    description: UUID of a Neutron external network
+    default: dd1dd2ec-2ce7-421e-ac23-97475b16d65e
+
+resources:
+
+  lb_01:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: true
+      name: Provider-NN-LB-01
+      value_specs: {router_type: exclusive}
+  lb_01_gw:
+    type: OS::Neutron::RouterGateway
+    properties:
+      network_id: {get_param: external_network_id}
+      router_id: { get_resource: lb_01 }
+  lb_int0:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: lb_01 }
+      port: { get_resource: lb_port0 }
+  lb_port0:
+    type: OS::Neutron::Port
+    properties:
+       admin_state_up: true
+       network_id: { get_param: provider_network_id }
+       fixed_ips:
+          - subnet: { get_param: provider_subnet_id }
+
