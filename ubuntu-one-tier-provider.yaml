@@ -1,7 +1,7 @@
 heat_template_version: 2013-05-23
 
 description: |
-  Sample heat template to two tier application.
+  Sample heat template to be used with "provider-vlan-lb.yaml" and deploys web and db on a one-tier provider backed vlan.
 parameters:
 
   external_network_id:

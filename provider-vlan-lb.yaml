@@ -14,13 +14,13 @@ parameters:
     type: string
     label: provider-net
     description: UUID of a Neutron external network
-    default: e150193e-3948-4c8f-9aa9-b59ea60e7db2
+    default: db10e40b-444e-4297-80c6-6d62b4779ca7
 
   provider_subnet_id:
     type: string
     label: provider-subnet
     description: UUID of a Neutron external network
-    default: dd1dd2ec-2ce7-421e-ac23-97475b16d65e
+    default: 41d5eeb1-7336-4c61-b840-7407281e21e1
 
 resources:
 
