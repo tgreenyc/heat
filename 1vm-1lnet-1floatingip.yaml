@@ -1,29 +1,31 @@
 heat_template_version: 2013-05-23
 
 description: >
-   A simple Heat template that creates a VM, hooks it up to a private network
+   A simple Heat template that creates a VM, hooks it up to a logical network
    and associates a floating ip from an external network to the VM.
 
-# Create command: heat stack-create <stack-name> --template-file=<path-to-this-file> --parameters="flavor_name=<flavor-name>;image_name=<image-name>;ext_net_id=<external network UUID>"
-
 parameters:
+
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+
   flavor_name:
     type: string
     label: flavor name
     description: Name of the flavor to be used for the instances.
-    default: m1.medium
+    default: m1.small
+
   image_name:
     type: string
     label: image name
     description: Name of the image from which to create the instances.
-    default: win2012r2
-  ext_net_id:
-    type: string
-    label: external network id
-    description: ID of the external network to which the private network should be uplinked.
-    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+    default: ubuntu-14.04-server-amd64
 
 resources:
+   # Create the logical network
    lnet_1:
       type: OS::Neutron::Net
       properties:
@@ -39,6 +41,7 @@ resources:
          gateway_ip: 10.10.10.1
          network_id: { get_resource: lnet_1 }
 
+   # Create the logical router
    router_1:
       type: OS::Neutron::Router
       properties:
@@ -47,7 +50,7 @@ resources:
    router_1_gw:
       type: OS::Neutron::RouterGateway
       properties:
-         network_id: { get_param: ext_net_id }
+         network_id: { get_param: external_network_id }
          router_id: { get_resource: router_1 }
    router1_int1:
       type: OS::Neutron::RouterInterface
@@ -63,6 +66,7 @@ resources:
          security_groups:
             - default
 
+   # Create the instance
    instance1:
       type: OS::Nova::Server
       properties:
@@ -72,10 +76,11 @@ resources:
          networks:
             - port: { get_resource: instance1_port1 }
 
+   # Assign the floating IP to the instance
    instance1_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
-         floating_network_id: { get_param: ext_net_id }
+         floating_network_id: { get_param: external_network_id }
          port_id: { get_resource: instance1_port1 }
 
 outputs:

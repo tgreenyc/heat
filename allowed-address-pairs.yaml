@@ -6,25 +6,30 @@ description: >
    allowed_address_pairs integration.
 
 parameters:
+
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of a Neutron external network
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+
   flavor_name:
     type: string
     label: flavor name
     description: Name of the flavor to be used for the instances.
     default: m1.small
+
   image_name:
     type: string
     label: image name
     description: Name of the image from which to create the instances.
-    default:  ubuntu-14.04-server-amd64
-  ext_net_id:
-    type: string
-    label: external network id
-    description: ID of the external network to which the private network should be uplinked.
-    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+    default: ubuntu-14.04-server-amd64
+
   bigip_client_subnet_ip:
     type: string
     description: Private IP address BIG-IP is assigned on client private network
     default: 10.2.2.3
+
   bigip_client_subnet_vip:
     type: string
     description: Private VIP address BIG-IP serves on client private network
@@ -55,7 +60,7 @@ resources:
    router_1_gw:
       type: OS::Neutron::RouterGateway
       properties:
-         network_id: { get_param: ext_net_id }
+         network_id: { get_param: external_network_id }
          router_id: { get_resource: router_1 }
    router1_int1:
       type: OS::Neutron::RouterInterface
@@ -73,7 +78,7 @@ resources:
    vip_floating_ip:
       type: OS::Neutron::FloatingIP
       properties:
-        floating_network_id: { get_param: ext_net_id }
+        floating_network_id: { get_param: external_network_id }
         port_id: { get_resource: vip_port }
    # Create Instance port
    instance1_port1:
