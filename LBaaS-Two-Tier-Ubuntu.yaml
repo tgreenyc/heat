@@ -291,6 +291,11 @@ resources:
     properties:
       floating_network_id: { get_param: external_network_id }
       port_id: { get_resource: web1_port0 }
+  web2_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_resource: web2_port1 }
 
   # Configure the LB'er
   monitor:
@@ -341,3 +346,6 @@ outputs:
   web1_public_ip:
     description: Floating IP address of Web1 on the public network
     value: { get_attr: [ web1_floating_ip, floating_ip_address ] }
+  web2_public_ip:
+    description: Floating IP address of Web1 on the public network
+    value: { get_attr: [ web2_floating_ip, floating_ip_address ] }
