@@ -1,8 +1,9 @@
 heat_template_version: 2013-05-23
 
 description: |
-  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server,
-  and 1 DB Server on private networks and attaches them to security groups (HOT template in YAML).
+  A simple Heat template that spins up a 3 Tier App with 2 Web Servers, 1 App Server,
+  and 1 DB Server on private networks and attaches them to security groups and a Loadbalancer (HOT template in YAML).
+  Template is meant to be run on ubuntu for user-data to work properly.
 
 parameters:
   external_network_id:
