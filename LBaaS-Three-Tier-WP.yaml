@@ -1,0 +1,450 @@
+heat_template_version: 2013-05-23
+
+description: |
+  A simple Heat template that spins up a 3 Tier App with 1 Web Server, 1 App Server,
+  and 1 DB Server on private networks and attaches them to security groups (HOT template in YAML).
+
+parameters:
+  external_network_id:
+    type: string
+    label: ext-net
+    description: UUID of the External network
+    default: fdb92e61-75e4-47ef-9b74-557af5b6147d
+
+  web_image:
+    type: string
+    description: Name of image to use for servers
+    default: ubuntu-14.04-server-amd64
+
+  app_image:
+    type: string
+    description: Name of image to use for servers
+    default: ubuntu-14.04-server-amd64
+
+  db_image:
+    type: string
+    description: Name of image to use for servers
+    default: ubuntu-14.04-server-amd64
+
+  mysql_root_password:
+    type: string
+    description: MySQL root password
+    hidden: true
+
+  database_password:
+    type: string
+    description: MySQL user password
+    hidden: true
+
+  database_name:
+    type: string
+    label: Database name
+    description: Name of the application database.
+
+  database_user:
+    type: string
+    label: Database username
+    description: Name of the database user
+
+resources:
+  # Create the web logical switch and configure DHCP.
+  web_network_01:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: web-network-01
+  web_subnet_01:
+    type: OS::Neutron::Subnet
+    properties:
+      name: web-subnet-01
+      cidr: 172.16.10.0/24
+      dns_nameservers: [8.8.8.8]
+      enable_dhcp: true
+      gateway_ip: 172.16.10.1
+      network_id: { get_resource: web_network_01 }
+
+  # Create the app logical switch and configure DHCP.
+  app_network_01:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: app-network-01
+  app_subnet_01:
+    type: OS::Neutron::Subnet
+    properties:
+      name: app-subnet-01
+      cidr: 172.16.20.0/24
+      dns_nameservers: [8.8.8.8]
+      enable_dhcp: true
+      gateway_ip: 172.16.20.1
+      network_id: { get_resource: app_network_01 }
+
+  # Create the db logical switch and configure DHCP.
+  db_network_01:
+    type: OS::Neutron::Net
+    properties:
+      admin_state_up: true
+      name: db-network-01
+  db_subnet_01:
+    type: OS::Neutron::Subnet
+    properties:
+      name: db-subnet-01
+      cidr: 172.16.30.0/24
+      dns_nameservers: [8.8.8.8]
+      enable_dhcp: true
+      gateway_ip: 172.16.30.1
+      network_id: { get_resource: db_network_01 }
+
+  # Create router, add internal interfaces for 3 tiers, and also an uplink.
+  heat_router_01:
+    type: OS::Neutron::Router
+    properties:
+      admin_state_up: true
+      name: app-router-01
+      value_specs: {router_type: exclusive}
+  heat_router_01_gw:
+    type: OS::Neutron::RouterGateway
+    properties:
+      network_id: {get_param: external_network_id}
+      router_id: { get_resource: heat_router_01 }
+  heat_router_int0:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: heat_router_01 }
+      subnet_id: { get_resource: web_subnet_01 }
+  heat_router_int1:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: heat_router_01 }
+      subnet_id: { get_resource: app_subnet_01 }
+  heat_router_int2:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: heat_router_01 }
+      subnet_id: { get_resource: db_subnet_01 }
+
+  # Create security groups for the tiers.
+  db_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Allow sql traffic from web tier
+      name: db-security-group
+      rules:
+        - remote_group_id: { get_resource: web_security_group }
+          remote_mode: remote_group_id
+          protocol: tcp
+          port_range_min: 3306
+          port_range_max: 3306
+
+  web_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Allow web traffic from anywhere
+      name: web-security-group
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+
+  app_security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Allow app traffic from web tier
+      name: app-security-group
+      rules:
+        - remote_ip_prefix: { get_resource: web_security_group }
+          remote_mode: remote_group_id
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+
+  # Create ports on web switch.
+  web-svr-01_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: web_network_01 }
+      security_groups:
+        - { get_resource: web_security_group }
+  web-svr-02_port1:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: web_network_01 }
+      security_groups:
+        - { get_resource: web_security_group }
+  web-svr-01_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: {get_param: external_network_id}
+      port_id: { get_resource: web-svr-01_port0 }
+  web-svr-02_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: {get_param: external_network_id}
+      port_id: { get_resource: web-svr-02_port1 }
+  # Create port(s) on app switch.
+  app-svr-01_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: app_network_01 }
+      security_groups:
+        - { get_resource: app_security_group }
+
+  # Create port(s) on db switch.
+  db-svr-01_port0:
+    type: OS::Neutron::Port
+    properties:
+      admin_state_up: true
+      network_id: { get_resource: db_network_01 }
+      security_groups:
+        - { get_resource: db_security_group }
+
+  # Provision instances.
+  db-svr-01:
+    type: OS::Nova::Server
+    properties:
+      name: db-instance-01
+      image: { get_param: db_image }
+      flavor: m1.small
+      networks:
+        - port: { get_resource: db-svr-01_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __mysql_root_password__: { get_param: mysql_root_password }
+            __database_name__: { get_param: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
+          template: |
+            #!/bin/bash
+            # install MySQL
+            apt-get update
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get install -y mysql-server
+
+            # configure MySQL root password
+            mysqladmin -u root password "__mysql_root_password__"
+
+            # listen on all network interfaces
+            sed -i "s/bind-address.*/bind-address = 0.0.0.0/" /etc/mysql/my.cnf
+
+            # restart service
+            service mysql restart
+
+            # create wordpress database
+            mysql -u root --password="__mysql_root_password__" <<EOF
+            CREATE DATABASE __database_name__;
+            CREATE USER '__database_user__'@'localhost';
+            SET PASSWORD FOR '__database_user__'@'localhost'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'localhost' IDENTIFIED BY '__database_password__';
+            CREATE USER '__database_user__'@'%';
+            SET PASSWORD FOR '__database_user__'@'%'=PASSWORD("__database_password__");
+            GRANT ALL PRIVILEGES ON __database_name__.* TO '__database_user__'@'%' IDENTIFIED BY '__database_password__';
+            FLUSH PRIVILEGES;
+            EOF
+
+  app-svr-01:
+    type: OS::Nova::Server
+    depends_on: db-svr-01
+    properties:
+      name: app-instance-01
+      image: { get_param: app_image }
+      flavor: m1.small
+      networks:
+        - port: { get_resource: app-svr-01_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __mysql_ip__: { get_attr: [db-svr-01, first_address] }
+            __database_name__: { get_param: database_name }
+            __database_user__: { get_param: database_user }
+            __database_password__: { get_param: database_password }
+            #wc_notify: { get_attr: ['wh', 'curl_cli'] }
+          template: |
+            #!/bin/bash -ex
+            # install dependencies
+            apt-get update
+            apt-get -y install apache2 php5 libapache2-mod-php5 php5-mysql php5-gd mysql-client
+            # download wordpress
+            wget http://wordpress.org/latest.tar.gz
+            tar -xzf latest.tar.gz
+            # configure wordpress
+            cp wordpress/wp-config-sample.php wordpress/wp-config.php
+            sed -i 's/database_name_here/__database_name__/' wordpress/wp-config.php
+            sed -i 's/username_here/__database_user__/' wordpress/wp-config.php
+            sed -i 's/password_here/__database_password__/' wordpress/wp-config.php
+            sed -i 's/localhost/__mysql_ip__/' wordpress/wp-config.php
+            # install a copy of the configured wordpress into apache's www directory
+            rm /var/www/html/index.html
+            cp -R wordpress/* /var/www/html/
+            # give apache ownership of the application files
+            chown -R www-data:www-data /var/www/html/
+            chmod -R g+w /var/www/html/
+            # notify heat that we are done here
+            #wc_notify --data-binary '{"status": "SUCCESS"}'
+
+  web-svr-01:
+    type: OS::Nova::Server
+    depends_on: app-svr-01
+    properties:
+      name: web-instance-01
+      image: { get_param: web_image }
+      flavor: m1.small
+      networks:
+        - port: { get_resource: web-svr-01_port0 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __app_ip__: { get_attr: [app-svr-01, first_address] }
+          template: |
+            #!/bin/bash
+            # Install nginx
+            #rpm -UvH https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
+            apt-get update
+            apt-get install -y nginx
+            # Create the reverse proxy config
+            mv /etc/nginx/sites-available/default /etc/nginx/sites-available/default.disabled
+            cat > /etc/nginx/conf.d/wordpress-proxy.conf <<EOF
+            server {
+               listen 80;
+               server_name wordpress.corp.local;
+               access_log off;
+               error_log off;
+               location / {
+                  proxy_pass http://##APP_IP_ADDR##/;
+                  proxy_redirect off;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  client_max_body_size 100M;
+                  client_body_buffer_size 1m;
+                  proxy_intercept_errors on;
+                  proxy_buffering on;
+                  proxy_buffer_size 128k;
+                  proxy_buffers 256 16k;
+                  proxy_busy_buffers_size 256k;
+                  proxy_temp_file_write_size 256k;
+                  proxy_max_temp_file_size 0;
+                  proxy_read_timeout 90;
+                  proxy_send_timeout 90;
+                }
+             }
+            EOF
+            # Configure and start nginx
+            sed -i 's/##APP_IP_ADDR##/__app_ip__/' /etc/nginx/conf.d/wordpress-proxy.conf
+            service nginx restart
+            chkconfig nginx on
+
+  web-svr-02:
+    type: OS::Nova::Server
+    depends_on: app-svr-01
+    properties:
+      name: web-instance-02
+      image: { get_param: web_image }
+      flavor: m1.small
+      networks:
+        - port: { get_resource: web-svr-02_port1 }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          params:
+            __app_ip__: { get_attr: [app-svr-01, first_address] }
+          template: |
+            #!/bin/bash
+            # Install nginx
+            #rpm -UvH https://dl.fedoraproject.org/pub/epel/epel-release-latest-6.noarch.rpm
+            apt-get update
+            apt-get install -y nginx
+            # Create the reverse proxy config
+            mv /etc/nginx/sites-available/default /etc/nginx/sites-available/default.disabled
+            cat > /etc/nginx/conf.d/wordpress-proxy.conf <<EOF
+            server {
+               listen 80;
+               server_name wordpress.corp.local;
+               access_log off;
+               error_log off;
+               location / {
+                  proxy_pass http://##APP_IP_ADDR##/;
+                  proxy_redirect off;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  client_max_body_size 100M;
+                  client_body_buffer_size 1m;
+                  proxy_intercept_errors on;
+                  proxy_buffering on;
+                  proxy_buffer_size 128k;
+                  proxy_buffers 256 16k;
+                  proxy_busy_buffers_size 256k;
+                  proxy_temp_file_write_size 256k;
+                  proxy_max_temp_file_size 0;
+                  proxy_read_timeout 90;
+                  proxy_send_timeout 90;
+                }
+             }
+            EOF
+            # Configure and start nginx
+            sed -i 's/##APP_IP_ADDR##/__app_ip__/' /etc/nginx/conf.d/wordpress-proxy.conf
+            service nginx restart
+            chkconfig nginx on
+
+  # Create the LB'er
+  monitor:
+    type: OS::Neutron::HealthMonitor
+    properties:
+      type: TCP
+      delay: 10
+      max_retries: 5
+      timeout: 10
+
+  pool:
+    type: OS::Neutron::Pool
+    depends_on: heat_router_int0
+    properties:
+      name: mypool
+      protocol: HTTP
+      monitors: [{get_resource: monitor}]
+      subnet_id: {get_resource: web_subnet_01}
+      lb_method: ROUND_ROBIN
+      vip:
+        protocol_port: 80
+
+  lb:
+    type: OS::Neutron::LoadBalancer
+    properties:
+      members: [ { get_resource: web-svr-01 }, { get_resource: web-svr-02 } ]
+      protocol_port: 80
+      pool_id: { get_resource: pool }
+
+  lb_floating:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: { get_param: external_network_id }
+      port_id: { get_attr: [ pool, vip, port_id ] }
+
+outputs:
+  WebsiteURL:
+    description: Wordpress URL
+    value:
+      str_replace:
+        template: http://host/
+        params:
+          host: { get_attr: [ lb_floating, floating_ip_address ] }
+  web-svr-01_public_ip:
+    description: Floating IP address of web-svr-01 in public network
+    value: { get_attr: [ web-svr-01_floating_ip, floating_ip_address ] }
+  web-svr-02_public_ip:
+    description: Floating IP address of web-svr-01 in public network
+    value: { get_attr: [ web-svr-02_floating_ip, floating_ip_address ] }
+
