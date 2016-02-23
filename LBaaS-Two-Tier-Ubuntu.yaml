@@ -177,7 +177,7 @@ resources:
             __database_user__: { get_param: database_user }
             __database_password__: { get_param: database_password }
             __database_name__: { get_param: database_name }
-            __lb_floating_ip__: { get attr: [lb_floating, floating_ip_address] }
+            __lb_floating_ip__: { get_attr: [lb_floating, floating_ip_address] }
             #wc_notify: { get_attr: ['wait_handle', 'curl_cli'] }
           template: |
             #!/bin/bash
