@@ -305,9 +305,12 @@ resources:
   monitor:
     type: OS::Neutron::HealthMonitor
     properties:
-      type: TCP
+      type: HTTP
+      http_method: GET
+      expected_codes: 200
+      url_path: /index.php
       delay: 10
-      max_retries: 5
+      max_retries: 3
       timeout: 10
 
   pool:
