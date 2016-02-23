@@ -1,7 +1,9 @@
 heat_template_version: 2013-05-23
 
 description: |
-  Sample heat template to two tier application.
+  Sample heat template that spins up a 2 Tier App with 2 Web Servers and 1 DB server on private networks and attaches them to security
+  groups and a Loadbalancer. Template is meant to be run on ubuntu for user-date to work properly.
+
 parameters:
 
   external_network_id:
