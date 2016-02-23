@@ -130,7 +130,7 @@ resources:
       description: Allow sql traffic from web tier
       name: db-security-group
       rules:
-        - remote_group_id: { get_resource: web_security_group }
+        - remote_group_id: { get_resource: app_security_group }
           remote_mode: remote_group_id
           protocol: tcp
           port_range_min: 3306
@@ -157,7 +157,7 @@ resources:
       description: Allow app traffic from web tier
       name: app-security-group
       rules:
-        - remote_ip_prefix: { get_resource: web_security_group }
+        - remote_group_id: { get_resource: web_security_group }
           remote_mode: remote_group_id
           protocol: tcp
           port_range_min: 80
