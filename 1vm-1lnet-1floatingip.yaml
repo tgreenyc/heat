@@ -29,11 +29,17 @@ parameters:
     label: keypair
     description: The keypair that will be used for the instances
 
-  dns:
+  dns1:
     type: string
-    label: DNS nameservers
-    description: Comma separated list of DNS nameservers for the private network
+    label: DNS nameserver 1
+    description: First DNS Server
     default: "8.8.8.8"
+
+  dns2:
+    type: string
+    label: DNS nameserver 2
+    description: Second DNS Server (Optional)
+    default: "8.8.4.4"
 
 resources:
    # Create the logical network
@@ -48,7 +54,7 @@ resources:
       properties:
          name: subnet_1
          cidr: 10.10.10.0/24
-         dns_nameservers: [ { get_param: dns } ]
+         dns_nameservers: [ { get_param: dns1 },{ get_param: dns2 } ]
          enable_dhcp: true
          gateway_ip: 10.10.10.1
          network_id: { get_resource: lnet_1 }
