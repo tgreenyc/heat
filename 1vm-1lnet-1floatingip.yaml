@@ -24,6 +24,11 @@ parameters:
     description: Name of the image from which to create the instances.
     default: ubuntu-14.04-server-amd64
 
+  keypair:
+    type: string
+    label: keypair
+    description: The keypair that will be used for the instances
+
 resources:
    # Create the logical network
    lnet_1:
@@ -37,6 +42,7 @@ resources:
       properties:
          name: subnet_1
          cidr: 10.10.10.0/24
+         dns_nameservers: [8.8.8.8]
          enable_dhcp: true
          gateway_ip: 10.10.10.1
          network_id: { get_resource: lnet_1 }
@@ -70,6 +76,7 @@ resources:
    instance1:
       type: OS::Nova::Server
       properties:
+         key_name: { get_param: keypair }
          name: instance1
          image: { get_param: image_name }
          flavor:  { get_param: flavor_name }

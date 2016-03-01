@@ -4,6 +4,23 @@ description: |
   Sample heat template that spins up a 2 Tier App with 2 Web Servers and 1 DB server on private networks and attaches them to security
   groups and a Loadbalancer. Template is meant to be run on ubuntu for user-date to work properly.
 
+parameter_groups:
+
+- label: Database Settings
+  parameters:
+  - database_name
+  - database_user
+  - database_password
+  - mysql_root_password
+
+- label: Server and Network Settings
+  parameters:
+  - key_pair
+  - web_image
+  - db_image
+  - flavor
+  - external_network_id
+
 parameters:
 
   external_network_id:
@@ -25,7 +42,6 @@ parameters:
   key_pair:
     type: string
     description: SSH Key Pair
-    default: nness
 
   mysql_root_password:
     type: string
